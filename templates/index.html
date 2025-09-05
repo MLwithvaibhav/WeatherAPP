@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Weather App</title>
+</head>
+<body>
+  <h2>🌤️ Weather App</h2>
+
+  <input type="text" id="cityInput" placeholder="Enter city">
+  <button onclick="getWeather()">Get Weather</button>
+
+  <h3>Weather Result:</h3>
+  <pre id="result"></pre>
+
+  <h3>History:</h3>
+  <button onclick="getHistory()">Show History</button>
+  <div id="history"></div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:5000";
+
+    async function getWeather() {
+      const city = document.getElementById("cityInput").value;
+      const res = await fetch(`${API_BASE}/weather?city=${city}`);
+      const data = await res.json();
+      document.getElementById("result").innerText = JSON.stringify(data, null, 2);
+    }
+
+    async function getHistory() {
+      const res = await fetch(`${API_BASE}/history`);
+      const data = await res.json();
+
+      const historyDiv = document.getElementById("history");
+      historyDiv.innerHTML = "";
+
+      data.forEach(record => {
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <pre>${JSON.stringify(record, null, 2)}</pre>
+          <button onclick="deleteRecord(${record.id})">Delete</button>
+          <hr>
+        `;
+        historyDiv.appendChild(div);
+      });
+    }
+
+    async function deleteRecord(id) {
+      await fetch(`${API_BASE}/history/${id}`, {
+        method: "DELETE"
+      });
+      getHistory(); // refresh list after delete
+    }
+  </script>
+</body>
+</html>

@@ -1,21 +1,23 @@
-from flask import Flask, jsonify, request
-from flask_restful import Api, Resource, reqparse, abort, fields, marshal_with
+from flask import Flask, request
+from flask_restful import Api, Resource, fields, marshal_with
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from flask import request
 from datetime import datetime
+import requests   # <-- yaha se requests use karna hai
+from flask import render_template
 
 app = Flask(__name__)
 CORS(app)
 api = Api(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///weather.db'
-
 db = SQLAlchemy(app)
-# with app.app_context():
-#     db.create_all()
-API_KEY = "YOUR_OPENWEATHER_API_KEY" 
 
+API_KEY = "API KEY"   # <-- yaha apni API key daal
+city = "London"  # Default city
+# ------------------------------
+# Database Model
+# ------------------------------
 class WeatherModel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     city = db.Column(db.String(50), nullable=False)
@@ -27,34 +29,41 @@ class WeatherModel(db.Model):
     feels_like = db.Column(db.Float, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Marsahalling fields
-
+# ------------------------------
+# Marshalling fields
+# ------------------------------
 weather_fields = {
     "id": fields.Integer,
-    'city': fields.String,
-    'temperature': fields.Float,
-    'description': fields.String,
-    'humidity': fields.Integer,
-    'wind_speed': fields.Float,
-    'pressure' : fields.Float,
-    'feel_like' : fields.Float,
-    'timestamp' : fields.DateTime
+    "city": fields.String,
+    "temperature": fields.Float,
+    "description": fields.String,
+    "humidity": fields.Integer,
+    "wind_speed": fields.Float,
+    "pressure": fields.Float,
+    "feels_like": fields.Float,   # <-- yaha spelling sahi kiya
+    "timestamp": fields.DateTime
 }
-# request parser
-parsers= reqparse.RequestParser()
-parsers.add_argument('city', type=str, help='City name is required', required=True)
+
+# ------------------------------
+# Weather Resource
+# ------------------------------
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
 
 class Weather(Resource):
     @marshal_with(weather_fields)
     def get(self):
-        args = parsers.parse_args()
-        city = args["city"]
+        city = request.args.get("city")   # query string se city lena
+        if not city:
+            return {"message": "City is required"}, 400
 
         # OpenWeather API call
         url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
-        response = request.get(url).json()
+        response = requests.get(url).json()
 
-        # Agar city galat hai toh error handle karna
         if response.get("cod") != 200:
             return {"message": "City not found"}, 404
 
@@ -74,24 +83,37 @@ class Weather(Resource):
         db.session.commit()
 
         return data, 200
-    
 
+# ------------------------------
+# History Resource
+# ------------------------------
 class History(Resource):
     @marshal_with(weather_fields)
     def get(self):
         records = WeatherModel.query.all()
         return records, 200
 
+# ------------------------------
+# Delete Resource
+# ------------------------------
+class DeleteHistory(Resource):
+    def delete(self, record_id):
+        record = WeatherModel.query.get(record_id)
+        if not record:
+            return {"message": "Record not found"}, 404
+
+        db.session.delete(record)
+        db.session.commit()
+        return {"message": "Record deleted successfully"}, 200
 
 # ------------------------------
 # Routes
 # ------------------------------
 api.add_resource(Weather, "/weather")
 api.add_resource(History, "/history")
+api.add_resource(DeleteHistory, "/history/<int:record_id>")
 
 if __name__ == "__main__":
-    # with app.app_context():
-    #     db.create_all()
+    with app.app_context():
+        db.create_all()  # table create karega agar nahi hai
     app.run(debug=True)
-
-# hello world
