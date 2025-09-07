@@ -117,3 +117,4 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()  # table create karega agar nahi hai
     app.run(debug=True)
+#hello world 
