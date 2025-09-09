@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-500 to-indigo-700 flex flex-col items-center p-6 text-white">
+
+  <h1 class="text-4xl font-bold mb-6">🌤️ Weather App</h1>
+
+  <!-- Search -->
+  <div class="flex gap-2 mb-6">
+    <input id="cityInput" class="w-60 p-2 rounded text-black" type="text" placeholder="Enter city...">
+    <button onclick="getWeather()" class="px-4 py-2 bg-white/20 rounded-lg shadow hover:bg-white/30">Search</button>
+  </div>
+
+  <!-- Current Weather -->
+  <div id="weatherCard" class="hidden mb-8">
+    <div class="bg-white/20 backdrop-blur-md text-center text-white w-80 rounded-2xl shadow-lg p-6">
+      <h2 id="cityName" class="text-2xl font-semibold"></h2>
+      <p id="temperature" class="text-5xl font-bold my-2"></p>
+      <p id="description" class="capitalize"></p>
+      <div class="grid grid-cols-2 gap-4 mt-4 text-sm">
+        <p id="humidity"></p>
+        <p id="wind"></p>
+        <p id="pressure"></p>
+        <p id="feelsLike"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div id="historySection" class="w-full max-w-xl bg-white/10 rounded-2xl shadow-lg p-4 hidden">
+    <div class="flex justify-between items-center mb-2">
+      <h2 class="text-xl font-semibold">History</h2>
+      <button onclick="deleteHistory()" class="px-3 py-1 bg-red-500 rounded-lg text-sm hover:bg-red-600">Clear</button>
+    </div>
+    <ul id="historyList" class="divide-y divide-white/20 max-h-60 overflow-y-auto text-sm"></ul>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:5000";
+    let currentCity = "London";
+
+    async function getWeather() {
+      const city = document.getElementById("cityInput").value || "London";
+      currentCity = city;
+      try {
+        const res = await fetch(`${API_BASE}/weather?city=${city}`);
+        if (!res.ok) {
+          alert("City not found!");
+          return;
+        }
+        const data = await res.json();
+
+        // Show weather card
+        document.getElementById("weatherCard").classList.remove("hidden");
+        document.getElementById("cityName").innerText = data.city;
+        document.getElementById("temperature").innerText = `${data.temperature}°C`;
+        document.getElementById("description").innerText = data.description;
+        document.getElementById("humidity").innerText = `💧 Humidity: ${data.humidity}%`;
+        document.getElementById("wind").innerText = `🌬 Wind: ${data.wind_speed} m/s`;
+        document.getElementById("pressure").innerText = `📊 Pressure: ${data.pressure} hPa`;
+        document.getElementById("feelsLike").innerText = `🤔 Feels Like: ${data.feels_like}°C`;
+
+        getHistory(city);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function getHistory(city) {
+      try {
+        const res = await fetch(`${API_BASE}/history?city=${city}`);
+        if (res.ok) {
+          const data = await res.json();
+          const historyList = document.getElementById("historyList");
+          historyList.innerHTML = "";
+          data.reverse().forEach(item => {
+            const li = document.createElement("li");
+            li.className = "py-2 flex justify-between";
+            li.innerHTML = `
+              <span>${item.temperature}°C, ${item.description}</span>
+              <span class="opacity-80">${new Date(item.timestamp).toLocaleString()}</span>
+            `;
+            historyList.appendChild(li);
+          });
+          document.getElementById("historySection").classList.remove("hidden");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function deleteHistory() {
+      try {
+        await fetch(`${API_BASE}/delete_history?city=${currentCity}`, { method: "DELETE" });
+        document.getElementById("historyList").innerHTML = "";
+        document.getElementById("historySection").classList.add("hidden");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Default city on load
+    getWeather();
+  </script>
+</body>
+</html>
